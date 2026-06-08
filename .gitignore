@@ -1,0 +1,26 @@
+# Flutter and Dart files
+loci_hub/.dart_tool/
+loci_hub/.flutter-plugins
+loci_hub/.flutter-plugins-dependencies
+loci_hub/.packages
+loci_hub/build/
+
+# Android files
+loci_hub/android/local.properties
+loci_hub/android/.gradle/
+loci_hub/android/app/build/
+loci_hub/android/app/debug/
+loci_hub/android/app/release/
+
+# IDE files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
