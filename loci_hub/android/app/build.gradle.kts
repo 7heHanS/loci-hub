@@ -55,3 +55,28 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+tasks.register("copyLocalEnvToAssets") {
+    doLast {
+        val userHome = System.getProperty("user.home")
+        val envFile = file("$userHome/.env")
+        if (envFile.exists()) {
+            val originalAssetsDir = file("${project.projectDir}/../../assets")
+            if (!originalAssetsDir.exists()) {
+                originalAssetsDir.mkdirs()
+            }
+            envFile.copyTo(file("$originalAssetsDir/config.env"), overwrite = true)
+            println("✅ [copyLocalEnvToAssets] Copied local ~/.env to assets/config.env")
+            
+            val flutterAssetsDir = file("${project.projectDir}/../../build/flutter_assets/assets")
+            if (flutterAssetsDir.exists()) {
+                envFile.copyTo(file("$flutterAssetsDir/config.env"), overwrite = true)
+                println("✅ [copyLocalEnvToAssets] Copied to build/flutter_assets/assets/config.env")
+            }
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("copyLocalEnvToAssets")
+}
