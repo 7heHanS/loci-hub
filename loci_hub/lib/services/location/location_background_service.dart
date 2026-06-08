@@ -89,6 +89,16 @@ void onStart(ServiceInstance service) async {
   MotionState motionState = MotionState.walking;
   int currentInterval = TrackingConstants.intervalWalkingSeconds;
 
+  final startNowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  final startJournalDate = TimezoneUtils.epochToJournalDate(startNowSeconds);
+
+  // Initialize lastRecordedLog and recentSamples for a warm start
+  final todayLogs = await locationDao.getByDateSorted(startJournalDate);
+  LocationLog? lastRecordedLog = todayLogs.isNotEmpty ? todayLogs.last : null;
+  final List<LocationLog> recentSamples = todayLogs.length > TrackingConstants.recentSampleCount
+      ? todayLogs.sublist(todayLogs.length - TrackingConstants.recentSampleCount)
+      : List<LocationLog>.from(todayLogs);
+
   while (isTracking) {
     try {
       // 1. Fetch current GPS position
@@ -100,19 +110,8 @@ void onStart(ServiceInstance service) async {
       final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final journalDate = TimezoneUtils.epochToJournalDate(nowSeconds);
 
-      // 2. Ensure daily journal exists to respect the foreign key constraint
-      final existingJournal = await journalDao.getByDate(journalDate);
-      if (existingJournal == null) {
-        final newJournal = DailyJournal(
-          journalDate: journalDate,
-          createdAt: nowSeconds,
-          updatedAt: nowSeconds,
-        );
-        await journalDao.insertOrReplace(newJournal);
-      }
-
-      // 3. Write location point to database
-      final log = LocationLog(
+      // Create a temporary log for motion detection and UI update
+      final tempLog = LocationLog(
         journalDate: journalDate,
         timestamp: nowSeconds,
         latitude: position.latitude,
@@ -125,19 +124,15 @@ void onStart(ServiceInstance service) async {
         activityType: motionState.name,
         createdAt: nowSeconds,
       );
-      await locationDao.insertBatch([log]);
 
-      // Update journal update timestamp
-      await journalDao.updateTimestamp(journalDate);
+      // Add to in-memory recent samples for motion detection
+      recentSamples.add(tempLog);
+      if (recentSamples.length > TrackingConstants.recentSampleCount) {
+        recentSamples.removeAt(0);
+      }
 
-      // 4. Fetch recent logs to run motion detection
-      final recentLogs = await locationDao.getByDateSorted(journalDate);
-      final samples = recentLogs.length > TrackingConstants.recentSampleCount
-          ? recentLogs.sublist(recentLogs.length - TrackingConstants.recentSampleCount)
-          : recentLogs;
-
-      // 5. Detect motion and dynamically adjust interval
-      motionState = motionDetector.detectMotion(samples);
+      // 2. Detect motion and dynamically adjust interval
+      motionState = motionDetector.detectMotion(recentSamples);
       switch (motionState) {
         case MotionState.stationary:
           currentInterval = TrackingConstants.intervalStationarySeconds;
@@ -150,7 +145,46 @@ void onStart(ServiceInstance service) async {
           break;
       }
 
-      // 6. Update notification UI in foreground service context
+      // 3. Determine if we should save this log to the database
+      bool shouldWrite = position.accuracy <= TrackingConstants.accuracyThresholdMeters;
+      if (shouldWrite) {
+        if (lastRecordedLog == null || lastRecordedLog.journalDate != journalDate) {
+          // Always write the first log of the day
+          shouldWrite = true;
+        } else {
+          final distance = Geolocator.distanceBetween(
+            lastRecordedLog.latitude,
+            lastRecordedLog.longitude,
+            position.latitude,
+            position.longitude,
+          );
+          // Only write if the distance is at least 15 meters to filter out indoor GPS drift/jitter
+          shouldWrite = distance >= TrackingConstants.distanceFilterMeters;
+        }
+      }
+
+      if (shouldWrite) {
+        // Ensure daily journal exists to respect the foreign key constraint
+        final existingJournal = await journalDao.getByDate(journalDate);
+        if (existingJournal == null) {
+          final newJournal = DailyJournal(
+            journalDate: journalDate,
+            createdAt: nowSeconds,
+            updatedAt: nowSeconds,
+          );
+          await journalDao.insertOrReplace(newJournal);
+        }
+
+        // Write location point to database with the detected motionState
+        final logToWrite = tempLog.copyWith(activityType: motionState.name);
+        await locationDao.insertBatch([logToWrite]);
+        lastRecordedLog = logToWrite;
+
+        // Update journal update timestamp
+        await journalDao.updateTimestamp(journalDate);
+      }
+
+      // 4. Update notification UI in foreground service context
       final stateText = motionState == MotionState.stationary
           ? '정지 상태'
           : motionState == MotionState.walking
@@ -164,7 +198,7 @@ void onStart(ServiceInstance service) async {
         );
       }
 
-      // Send update callback to main UI isolate
+      // Send update callback to main UI isolate (always update real-time position)
       service.invoke('update', {
         'latitude': position.latitude,
         'longitude': position.longitude,

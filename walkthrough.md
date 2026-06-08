@@ -62,6 +62,7 @@ We implemented the SQLite database schema inside [app_database.dart](file:///hom
   - **Walking**: 1 minute interval
   - **Vehicle**: 30 seconds interval
 - Connected the service isolate with a separate DB connection to prevent thread lock issues.
+- **Bug Fix (Android Notification Channel Crash)**: Resolved a crash where starting location tracking from the "tracking stopped" status caused the app to terminate with `invalid channel for service notification: Notification(channel=loci_hub_tracking)`. We fixed this by registering the required `loci_hub_tracking` notification channel in Kotlin ([MainActivity.kt](file:///home/thehans.han/LociHub/loci_hub/android/app/src/main/kotlin/com/locihub/app/MainActivity.kt)) on application startup.
 
 ---
 
