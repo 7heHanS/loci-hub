@@ -69,3 +69,19 @@
   - [x] Verify Edge-to-Edge UI compliance for Android 15
   - [x] Test layout transition on Fold 6 emulator/device
   - [x] Deploy developer DB export to settings page
+
+## Phase 5: On-Device AI Summary Integration (Gemma-4-E4B-it)
+- [x] Local LLM API Service
+  - [x] Implement `LlmService` to call `http://localhost:9379/v1/chat/completions`
+  - [x] Structure daily activity prompt (GPS coordinates, time span, photo count, match status)
+  - [x] Implement robust fallback JSON parser for model outputs
+- [x] State Management & DB Update
+  - [x] Implement `LlmNotifier` and `llmProvider` (Riverpod)
+  - [x] Persist AI summary to `DailyJournal` table (`ai_title` and `ai_summary` fields)
+- [x] UI Integration
+  - [x] Create Material 3 styled `AiSummaryCard`
+  - [x] Integrate into `HomeFoldedLayout` and `HomeUnfoldedLayout`
+- [x] Verification
+  - [x] Write and run unit tests for `LlmService`
+  - [x] Verify static analysis and compilation
+

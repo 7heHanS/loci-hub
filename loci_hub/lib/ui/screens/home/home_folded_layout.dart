@@ -8,6 +8,7 @@ import '../../../providers/photo_sync_provider.dart';
 import '../../../providers/tracking_provider.dart';
 import '../../widgets/calendar/calendar_selector.dart';
 import '../../widgets/common/tracking_status_indicator.dart';
+import '../../widgets/common/ai_summary_card.dart';
 import '../../widgets/map/loci_map_view.dart';
 import '../../widgets/timeline/timeline_feed.dart';
 
@@ -182,6 +183,15 @@ class HomeFoldedLayout extends ConsumerWidget {
                                   ),
                                 ),
                         ],
+                      ),
+                    ),
+
+                    // AI Summary Card
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                      child: AiSummaryCard(
+                        journal: data.journal,
+                        date: selectedDate,
                       ),
                     ),
 

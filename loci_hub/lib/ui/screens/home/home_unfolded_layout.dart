@@ -8,6 +8,7 @@ import '../../../providers/photo_sync_provider.dart';
 import '../../../providers/tracking_provider.dart';
 import '../../widgets/calendar/calendar_selector.dart';
 import '../../widgets/common/tracking_status_indicator.dart';
+import '../../widgets/common/ai_summary_card.dart';
 import '../../widgets/map/loci_map_view.dart';
 import '../../widgets/timeline/timeline_feed.dart';
 
@@ -178,6 +179,16 @@ class HomeUnfoldedLayout extends ConsumerWidget {
                                 ],
                               ),
                             ),
+                          ),
+                          loading: () => const SizedBox(height: 50),
+                          error: (_, __) => const SizedBox(height: 50),
+                        ),
+                        const SizedBox(height: 12),
+                        // AI Summary Card
+                        journalDataAsync.when(
+                          data: (data) => AiSummaryCard(
+                            journal: data.journal,
+                            date: selectedDate,
                           ),
                           loading: () => const SizedBox(height: 50),
                           error: (_, __) => const SizedBox(height: 50),

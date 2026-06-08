@@ -114,3 +114,23 @@ $ flutter build apk --debug
 ✓ Built build/app/outputs/flutter-apk/app-debug.apk
 ```
 This confirms that compile-time Gradle dependencies are resolved and the application is ready to be loaded onto the Samsung Galaxy Z Fold 6 device.
+
+---
+
+## 9. On-Device AI Summary Integration (Gemma-4-E4B-it)
+We integrated support for the local **Gemma-4-E4B-it** model running via the Google AI Edge Gallery app to generate daily summaries (one-line text diary) and hashtags:
+
+- **`LlmService` ([llm_service.dart](file:///home/thehans.han/LociHub/loci_hub/lib/services/llm/llm_service.dart))**: 
+  - Connects to the local API server at `http://localhost:9379/v1/chat/completions` (OpenAI-compatible endpoint exposed by Edge Gallery).
+  - Summarizes the day's activity logs (coordinates, time range, activity type counts) and gallery photos taken.
+  - Formulates a detailed prompt requesting structured JSON output (one-line diary text and hashtags in Korean).
+  - Implements a robust fallback parsing mechanism (regex + heuristic parsing) to guarantee structured outputs even if the local model returns plain text or markdown blocks.
+- **`LlmProvider` ([llm_provider.dart](file:///home/thehans.han/LociHub/loci_hub/lib/providers/llm_provider.dart))**: Manages Riverpod states (`LlmStatus.generating`, `LlmStatus.success`, `LlmStatus.error`) and updates the `DailyJournal` table (`ai_title` and `ai_summary` fields) before invalidating providers to update the UI.
+- **`AiSummaryCard` ([ai_summary_card.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/widgets/common/ai_summary_card.dart))**: A premium Material 3 card styled with LinearGradients (primary container/tertiary container) that displays the generated diary and hashtags. It provides an interactive button to generate the summary or re-trigger it.
+- **Responsive Layout updates**: Placed `AiSummaryCard` between the controls bar and the timeline feed in [HomeFoldedLayout](file:///home/thehans.han/LociHub/loci_hub/lib/ui/screens/home/home_folded_layout.dart) and in the right-side control panel of [HomeUnfoldedLayout](file:///home/thehans.han/LociHub/loci_hub/lib/ui/screens/home/home_unfolded_layout.dart).
+- **Unit Tests ([llm_service_test.dart](file:///home/thehans.han/LociHub/loci_hub/test/unit/llm_service_test.dart))**: Wrote 4 test cases verifying:
+  - Clean JSON parsing
+  - Markdown code block extraction
+  - Regex/Heuristic fallback parsing
+  - Prompt generation stats compliance
+

@@ -10,6 +10,7 @@ import '../../services/location/location_background_service.dart';
 import '../../services/photo/photo_scanner_service.dart';
 import '../../services/photo/exif_parser_service.dart';
 import '../../services/photo/binary_search_matcher.dart';
+import '../../services/llm/llm_service.dart';
 import '../utils/db_export_util.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -55,6 +56,11 @@ Future<void> setupServiceLocator() async {
   );
   getIt.registerLazySingleton<BinarySearchMatcher>(
     () => BinarySearchMatcher(),
+  );
+
+  // LLM Services
+  getIt.registerLazySingleton<LlmService>(
+    () => LlmService(),
   );
 
   // Utilities
