@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/daily_journal.dart';
 import '../../../providers/llm_provider.dart';
@@ -29,11 +30,25 @@ class AiSummaryCard extends ConsumerWidget {
         );
         ref.read(llmProvider.notifier).reset();
       } else if (next.status == LlmStatus.error) {
+        final isOffline = next.errorMessage?.contains('9379 포트') ?? false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? '요약 생성 실패'),
             backgroundColor: theme.colorScheme.error,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 6),
+            action: isOffline
+                ? SnackBarAction(
+                    label: '앱 실행',
+                    textColor: theme.colorScheme.onErrorContainer,
+                    backgroundColor: theme.colorScheme.errorContainer,
+                    onPressed: () async {
+                      try {
+                        const platform = MethodChannel('com.locihub.app/app_control');
+                        await platform.invokeMethod('openEdgeGallery');
+                      } catch (_) {}
+                    },
+                  )
+                : null,
           ),
         );
         ref.read(llmProvider.notifier).reset();

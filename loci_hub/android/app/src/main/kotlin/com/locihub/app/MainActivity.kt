@@ -13,6 +13,27 @@ class MainActivity : FlutterActivity() {
         createNotificationChannel()
     }
 
+    override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        
+        io.flutter.plugin.common.MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger, 
+            "com.locihub.app/app_control"
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "openEdgeGallery") {
+                val launchIntent = packageManager.getLaunchIntentForPackage("com.google.ai.edge.gallery")
+                if (launchIntent != null) {
+                    startActivity(launchIntent)
+                    result.success(true)
+                } else {
+                    result.error("UNAVAILABLE", "Google AI Edge Gallery 앱이 설치되어 있지 않습니다.", null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "LociHub 위치 추적"
