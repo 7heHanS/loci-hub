@@ -929,6 +929,7 @@ flutter test test/unit/motion_detector_test.dart
 flutter test test/unit/exif_parser_test.dart
 flutter test test/unit/timezone_utils_test.dart
 flutter test test/unit/dao_test.dart
+flutter test test/unit/llm_service_test.dart
 ```
 
 ### Manual Verification
@@ -949,3 +950,85 @@ flutter test test/unit/dao_test.dart
 **Android 15 대응 (4단계):**
 - Edge-to-edge UI 확인
 - Foreground Service 동작 확인
+
+---
+
+### 📌 5단계: Gemini API 기반 클라우드 AI 요약 전환
+
+> 목표: 로컬 AI Edge Gallery 사용성을 탈피하고, Gemini Cloud API 호출 방식을 도입하여 번거로운 실행 과정을 제거합니다. API Key를 설정창에서 안전하게 입력 및 저장할 수 있도록 구현합니다.
+
+#### [MODIFY] [service_locator.dart](file:///home/thehans.han/LociHub/loci_hub/lib/core/di/service_locator.dart)
+- `shared_preferences` 싱글톤 등록을 추가하여 로컬 디바이스에 API Key를 동기/비동기식으로 안전하게 조회하고 보존할 수 있도록 개선합니다.
+```dart
+import 'package:shared_preferences/shared_preferences.dart';
+// ...
+final prefs = await SharedPreferences.getInstance();
+getIt.registerSingleton<SharedPreferences>(prefs);
+```
+
+#### [MODIFY] [settings_provider.dart](file:///home/thehans.han/LociHub/loci_hub/lib/providers/settings_provider.dart)
+- `geminiApiKeyProvider`를 `StateProvider`로 정의합니다.
+- 초기값은 `SharedPreferences`에 저장된 값이 있거나, 빌드 환경 변수(`const String.fromEnvironment('GEMINI_API_KEY')`)에 있을 경우 그 값을 우선적으로 사용합니다.
+
+#### [MODIFY] [settings_screen.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/screens/settings/settings_screen.dart)
+- "Gemini API 설정" 카드를 UI에 추가합니다.
+- `TextField`를 통해 API Key 입력을 제공합니다.
+  - `obscureText` 옵션을 사용해 입력되는 비밀 정보를 숨깁니다.
+  - 비밀번호 보기/숨기기 토글용 아이콘 버튼을 제공합니다.
+  - 입력이 완료되거나 변경될 때 `SharedPreferences`에 자동 저장하고 `geminiApiKeyProvider` 상태를 동기화합니다.
+
+#### [MODIFY] [llm_provider.dart](file:///home/thehans.han/LociHub/loci_hub/lib/providers/llm_provider.dart)
+- `generateSummaryForDate` 메서드 내에서 `apiKey` 값을 `geminiApiKeyProvider`로부터 읽어와 검증합니다.
+- 만약 API Key가 비어있다면, 요약 생성을 중단하고 `LlmStatus.error` 상태로 변경하며 사용자에게 `'설정 페이지에서 Gemini API Key를 먼저 입력해주세요.'`라는 메시지를 SnackBar 등을 통해 직관적으로 제공합니다.
+- 유효한 키가 있을 경우에만 `llmService.generateSummary(apiKey: apiKey, ...)`를 호출합니다.
+
+#### [MODIFY] [ai_summary_card.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/widgets/common/ai_summary_card.dart)
+- 기존 Gemma 구동 실패 대응 로직인 `MethodChannel` (`openEdgeGallery`) 호출 및 "앱 실행" SnackBarAction을 전면 제거합니다.
+- 로컬 Gemma 작동 문구(`'로컬 AI 모델이...'`)를 클라우드 API 작동에 맞게 `'AI 비서가 오늘 하루를 분석하는 중...'`으로 문구를 리팩토링합니다.
+
+#### 5단계 검증
+
+**단위 테스트:**
+- `llm_service_test.dart`를 실행하여 Gemini API JSON 응답 및 fallback 파싱 검증이 올바르게 동작하는지 확인합니다.
+
+**실기기 테스트:**
+- 설정(Settings) 화면으로 진입하여 사용자의 Gemini API Key를 입력하고, 다시 홈 화면으로 돌아왔을 때 API Key 상태가 유실되지 않고 유지되는지 검증합니다.
+- API Key 없이 "생성" 버튼을 눌렀을 때, 적절한 안내 SnackBar(`'설정 페이지에서 Gemini API Key를 먼저 입력해주세요.'`)가 나타나는지 검증합니다.
+- UI에 유효한 API Key를 저장한 후 "생성" 버튼을 눌렀을 때, Cloud API로부터 정상적으로 감성적인 요약 일기와 해시태그가 생성되어 DB에 기록되고 화면에 업데이트되는지 검증합니다.
+
+---
+
+### 📌 7단계: 멀티모달 Gemini 요약 (상세 경로 및 대표 사진 1장 연동)
+
+> 목표: GPS 위경도 정보 분석(누적 이동 거리, 경유 좌표)을 통한 여행/장거리 이동 인지 및 당일 대표 사진 1장(2장 이상 시 사용자가 수동 선택) 데이터를 Gemini API로 동시 전송하여, 사진 내용과 이동 동선이 어우러진 훨씬 구체적인 감성적 일기를 자동 작성합니다.
+
+#### [MODIFY] [llm_service.dart](file:///home/thehans.han/LociHub/loci_hub/lib/services/llm/llm_service.dart)
+- `generateSummary` 메서드의 매개변수에 `String? base64Image`를 추가합니다.
+- `base64Image`가 있을 경우, Gemini API의 payload 구성(`contents.parts`)에 `{ "inlineData": { "mimeType": "image/jpeg", "data": base64Image } }` 파트를 추가하여 멀티모달 전송을 수행하도록 리팩토링합니다.
+- `generatePrompt`에서 GPS 상세 경로 요약 데이터(하버사인 공식 기반의 당일 누적 이동 거리, 대표 좌표 5개 목록)를 포함하는 템플릿을 고도화합니다.
+
+#### [MODIFY] [llm_provider.dart](file:///home/thehans.han/LociHub/loci_hub/lib/providers/llm_provider.dart)
+- `generateSummaryForDate` 메서드 시그니처에 `String? selectedAssetId` 매개변수를 추가합니다.
+- 메서드 내부에서 다음 로직을 추가합니다:
+  - **하버사인 공식**을 구현하여 `logs`로부터 그날의 누적 이동 거리(km)를 계산합니다.
+  - 시간순으로 머무른 장소(정지 상태 및 일정 시간 간격 경유지) 중 대표 좌표 5개를 추출해 문자열화합니다.
+  - `selectedAssetId`가 전달된 경우, 해당 사진의 썸네일 바이트(512x512 해상도)를 `photo_manager`를 통해 비동기로 로드하고 Base64로 변환하여 `LlmService`에 전달합니다.
+
+#### [MODIFY] [ai_summary_card.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/widgets/common/ai_summary_card.dart)
+- 요약 생성 버튼을 클릭했을 때의 이벤트 처리를 개선합니다:
+  - 당일 사진이 0장일 경우: 사진 없이 `generateSummaryForDate` 호출.
+  - 당일 사진이 1장일 경우: 해당 사진을 자동 선택하여 호출.
+  - 당일 사진이 2장 이상일 경우: **"대표 사진 선택 다이얼로그(M3 GridView 기반)"**를 노출합니다.
+  - 사용자가 그리드에서 대표 사진 1장을 탭하고 "선택 완료"를 누르면 해당 `assetId`를 들고 요약 생성을 시작합니다.
+
+#### 7단계 검증
+
+**단위 테스트:**
+- `llm_service_test.dart` 내부에 이미지 전송 및 프롬프트 상세 경로 생성 시나리오에 관한 단위 테스트를 추가하고 통과 여부를 검증합니다.
+
+**실기기 테스트:**
+- 사진이 2장 이상인 날 요약 생성 버튼을 클릭했을 때, 정상적으로 썸네일 목록 다이얼로그 팝업이 발생하는지 검증합니다.
+- 특정 사진을 탭해 선택했을 때, 해당 사진의 바이너리가 API에 전달되어 사진 속 사물/상황을 일기 텍스트에 올바르게 투영하는지 검증합니다.
+- 장거리 이동 시 요약 템플릿에 누적 거리가 제대로 기재되어 AI가 여행 맥락을 올바르게 이해하는지 검증합니다.
+
+

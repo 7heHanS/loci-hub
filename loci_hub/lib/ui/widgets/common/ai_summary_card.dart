@@ -1,8 +1,11 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:photo_manager/photo_manager.dart';
 import '../../../data/models/daily_journal.dart';
+import '../../../data/models/photo_metadata.dart';
 import '../../../providers/llm_provider.dart';
+import '../../../providers/journal_provider.dart';
 
 class AiSummaryCard extends ConsumerWidget {
   final DailyJournal? journal;
@@ -13,6 +16,127 @@ class AiSummaryCard extends ConsumerWidget {
     required this.journal,
     required this.date,
   });
+
+  void _showPhotoPickerDialog(BuildContext context, WidgetRef ref, List<PhotoMetadata> photos) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String? localSelectedId;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            return AlertDialog(
+              title: const Text('요약에 포함할 대표 사진 선택'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 300,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'AI 비서가 이 사진의 내용을 함께 분석해 감성적인 하루 일기를 요약해 줍니다.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemCount: photos.length,
+                        itemBuilder: (context, index) {
+                          final photo = photos[index];
+                          final isSelected = localSelectedId == photo.assetId;
+                          
+                          return InkWell(
+                            onTap: () {
+                              setDialogState(() {
+                                localSelectedId = photo.assetId;
+                              });
+                            },
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: _PhotoThumbnail(assetId: photo.assetId),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: theme.colorScheme.primary,
+                                          width: 3,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('취소'),
+                ),
+                ElevatedButton(
+                  onPressed: localSelectedId == null
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          ref.read(llmProvider.notifier).generateSummaryForDate(
+                            date,
+                            ref,
+                            selectedAssetId: localSelectedId,
+                          );
+                        },
+                  child: const Text('이 사진으로 일기 작성'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _handleGenerate(BuildContext context, WidgetRef ref) {
+    final journalDataAsync = ref.read(journalDataProvider);
+    final photos = journalDataAsync.value?.photos ?? [];
+
+    if (photos.isEmpty) {
+      ref.read(llmProvider.notifier).generateSummaryForDate(date, ref);
+    } else if (photos.length == 1) {
+      ref.read(llmProvider.notifier).generateSummaryForDate(
+        date,
+        ref,
+        selectedAssetId: photos.first.assetId,
+      );
+    } else {
+      _showPhotoPickerDialog(context, ref, photos);
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,25 +154,11 @@ class AiSummaryCard extends ConsumerWidget {
         );
         ref.read(llmProvider.notifier).reset();
       } else if (next.status == LlmStatus.error) {
-        final isOffline = next.errorMessage?.contains('9379 포트') ?? false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? '요약 생성 실패'),
             backgroundColor: theme.colorScheme.error,
             duration: const Duration(seconds: 6),
-            action: isOffline
-                ? SnackBarAction(
-                    label: '앱 실행',
-                    textColor: theme.colorScheme.onErrorContainer,
-                    backgroundColor: theme.colorScheme.errorContainer,
-                    onPressed: () async {
-                      try {
-                        const platform = MethodChannel('com.locihub.app/app_control');
-                        await platform.invokeMethod('openEdgeGallery');
-                      } catch (_) {}
-                    },
-                  )
-                : null,
           ),
         );
         ref.read(llmProvider.notifier).reset();
@@ -113,23 +223,23 @@ class AiSummaryCard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    'AI 한줄 일기 & 태그',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: hasData 
-                          ? theme.colorScheme.primary 
-                          : theme.colorScheme.onSurface,
+                  Expanded(
+                    child: Text(
+                      'AI 한줄 일기 & 태그',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: hasData 
+                            ? theme.colorScheme.primary 
+                            : theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
                   if (hasData && llmState.status != LlmStatus.generating)
                     IconButton(
                       icon: const Icon(Icons.refresh, size: 18),
                       tooltip: '일기 다시 생성',
-                      onPressed: () {
-                        ref.read(llmProvider.notifier).generateSummaryForDate(date, ref);
-                      },
+                      onPressed: () => _handleGenerate(context, ref),
                     ),
                 ],
               ),
@@ -149,7 +259,7 @@ class AiSummaryCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '로컬 AI 모델이 오늘 하루를 분석하는 중...',
+                        'Gemini API가 오늘 하루를 분석하는 중...',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.outline,
                           fontStyle: FontStyle.italic,
@@ -186,7 +296,7 @@ class AiSummaryCard extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        '오늘 하루가 어땠는지 온디바이스 AI 비서에게 요약을 부탁해보세요.',
+                        '오늘 하루가 어땠는지 AI 비서에게 요약을 부탁해보세요.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -194,9 +304,7 @@ class AiSummaryCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {
-                        ref.read(llmProvider.notifier).generateSummaryForDate(date, ref);
-                      },
+                      onPressed: () => _handleGenerate(context, ref),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: theme.colorScheme.onPrimary,
@@ -221,6 +329,61 @@ class AiSummaryCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PhotoThumbnail extends StatefulWidget {
+  final String assetId;
+
+  const _PhotoThumbnail({required this.assetId});
+
+  @override
+  State<_PhotoThumbnail> createState() => _PhotoThumbnailState();
+}
+
+class _PhotoThumbnailState extends State<_PhotoThumbnail> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  Future<void> _loadThumbnail() async {
+    try {
+      final asset = await AssetEntity.fromId(widget.assetId);
+      if (asset != null) {
+        final data = await asset.thumbnailDataWithSize(
+          const ThumbnailSize(200, 200),
+        );
+        if (mounted) {
+          setState(() {
+            _bytes = data;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_bytes == null) {
+      return Container(
+        color: Colors.grey[300],
+        child: const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return Image.memory(
+      _bytes!,
+      fit: BoxFit.cover,
     );
   }
 }

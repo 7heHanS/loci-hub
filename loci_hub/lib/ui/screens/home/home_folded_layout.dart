@@ -79,8 +79,9 @@ class HomeFoldedLayout extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
           // Date Selector Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -124,9 +125,9 @@ class HomeFoldedLayout extends ConsumerWidget {
               data: (data) {
                 return Column(
                   children: [
-                    // Map View (~40% of height)
+                    // Map View (Fixed height to prevent overflow on smaller screens)
                     Container(
-                      height: MediaQuery.of(context).size.height * 0.32,
+                      height: 170.0,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         border: Border(
@@ -144,42 +145,69 @@ class HomeFoldedLayout extends ConsumerWidget {
 
                     // Controls Row (Sync Button & Metrics)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Chip(
-                                avatar: const Icon(Icons.gps_fixed, size: 14),
-                                label: Text('${data.locationLogs.length} pts'),
-                              ),
-                              const SizedBox(width: 8),
-                              Chip(
-                                avatar: const Icon(Icons.photo_library, size: 14),
-                                label: Text('${data.photos.length} photos'),
-                              ),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(Icons.gps_fixed, size: 14, color: theme.colorScheme.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${data.locationLogs.length}개',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Icon(Icons.photo_library, size: 14, color: theme.colorScheme.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${data.photos.length}장',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           syncState.status == PhotoSyncStatus.syncing
                               ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
+                                  width: 20,
+                                  height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : ElevatedButton.icon(
+                              : FilledButton(
                                   onPressed: () {
                                     ref
                                         .read(photoSyncProvider.notifier)
                                         .syncPhotosForDate(selectedDate, ref);
                                   },
-                                  icon: const Icon(Icons.sync, size: 16),
-                                  label: const Text('사진 동기화'),
-                                  style: ElevatedButton.styleFrom(
+                                  style: FilledButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
+                                      horizontal: 8,
+                                      vertical: 4,
                                     ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.sync, size: 14),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '동기화',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          color: theme.colorScheme.onPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                         ],
@@ -188,7 +216,7 @@ class HomeFoldedLayout extends ConsumerWidget {
 
                     // AI Summary Card
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
                       child: AiSummaryCard(
                         journal: data.journal,
                         date: selectedDate,
@@ -217,10 +245,11 @@ class HomeFoldedLayout extends ConsumerWidget {
 
           // Bottom Tracking Switch Bar
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             child: const TrackingStatusIndicator(),
           ),
         ],
+      ),
       ),
     );
   }

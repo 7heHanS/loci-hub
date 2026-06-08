@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/database/app_database.dart';
 import '../../data/database/dao/daily_journal_dao.dart';
 import '../../data/database/dao/location_log_dao.dart';
@@ -16,6 +17,10 @@ import '../utils/db_export_util.dart';
 final GetIt getIt = GetIt.instance;
 
 Future<void> setupServiceLocator() async {
+  // SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SharedPreferences>(prefs);
+
   // Database instance
   final db = AppDatabase();
   getIt.registerSingleton<AppDatabase>(db);

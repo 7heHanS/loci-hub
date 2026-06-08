@@ -79,9 +79,10 @@ class HomeUnfoldedLayout extends ConsumerWidget {
           ),
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      body: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           // Left Side: Google Map (60% width)
           Expanded(
             flex: 6,
@@ -107,9 +108,9 @@ class HomeUnfoldedLayout extends ConsumerWidget {
               color: theme.colorScheme.surfaceContainerLow,
               child: Column(
                 children: [
-                  // Header Block
+                  // Header Block (Reduced padding to avoid vertical overflow)
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -120,28 +121,45 @@ class HomeUnfoldedLayout extends ConsumerWidget {
                             IconButton(
                               icon: const Icon(Icons.chevron_left),
                               onPressed: () => _navigateDay(ref, -1),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
-                            ElevatedButton.icon(
-                              onPressed: () => CalendarSelector.show(context),
-                              icon: const Icon(Icons.calendar_today, size: 16),
-                              label: Text(
-                                selectedDate,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => CalendarSelector.show(context),
+                                  icon: const Icon(Icons.calendar_today, size: 14),
+                                  label: Text(
+                                    selectedDate,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.chevron_right),
                               onPressed: () => _navigateDay(ref, 1),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 6), // Reduced from 8
 
                         // Stats Card & Sync button
                         journalDataAsync.when(
@@ -155,35 +173,72 @@ class HomeUnfoldedLayout extends ConsumerWidget {
                               ),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.all(12.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                                vertical: 6.0,
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
-                                  _buildStatCol(context, '위치 포인트', '${data.locationLogs.length}개'),
-                                  _buildStatCol(context, '동기화 사진', '${data.photos.length}장'),
-                                  syncState.status == PhotoSyncStatus.syncing
-                                      ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : TextButton.icon(
-                                          onPressed: () {
-                                            ref
-                                                .read(photoSyncProvider.notifier)
-                                                .syncPhotosForDate(selectedDate, ref);
-                                          },
-                                          icon: const Icon(Icons.sync, size: 16),
-                                          label: const Text('동기화'),
-                                        ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: _buildStatCol(context, '위치', '${data.locationLogs.length}개'),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 24,
+                                    color: theme.colorScheme.outlineVariant,
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: _buildStatCol(context, '사진', '${data.photos.length}장'),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 24,
+                                    color: theme.colorScheme.outlineVariant,
+                                  ),
+                                  Expanded(
+                                    flex: 4,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: syncState.status == PhotoSyncStatus.syncing
+                                          ? const Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 16.0),
+                                              child: SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              ),
+                                            )
+                                          : TextButton.icon(
+                                              onPressed: () {
+                                                ref
+                                                    .read(photoSyncProvider.notifier)
+                                                    .syncPhotosForDate(selectedDate, ref);
+                                              },
+                                              icon: const Icon(Icons.sync, size: 14),
+                                              label: const Text(
+                                                '동기화',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 4,
+                                                ),
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           loading: () => const SizedBox(height: 50),
-                          error: (_, __) => const SizedBox(height: 50),
+                          error: (err, stack) => const SizedBox(height: 50),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8), // Reduced from 12
                         // AI Summary Card
                         journalDataAsync.when(
                           data: (data) => AiSummaryCard(
@@ -191,7 +246,7 @@ class HomeUnfoldedLayout extends ConsumerWidget {
                             date: selectedDate,
                           ),
                           loading: () => const SizedBox(height: 50),
-                          error: (_, __) => const SizedBox(height: 50),
+                          error: (err, stack) => const SizedBox(height: 50),
                         ),
                       ],
                     ),
@@ -215,7 +270,7 @@ class HomeUnfoldedLayout extends ConsumerWidget {
 
                   // Bottom Block: Tracking Switch
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: const TrackingStatusIndicator(),
                   ),
                 ],
@@ -223,6 +278,7 @@ class HomeUnfoldedLayout extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

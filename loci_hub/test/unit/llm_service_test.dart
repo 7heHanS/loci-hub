@@ -82,6 +82,8 @@ void main() {
       expect(prompt, contains('총 1개 좌표 수집'));
       expect(prompt, contains('도보 이동 1회'));
       expect(prompt, contains('총 1장'));
+      expect(prompt, contains('상세 이동 동선'));
+      expect(prompt, contains('이동 거리 분석'));
     });
   });
 }

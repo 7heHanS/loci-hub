@@ -85,3 +85,19 @@
   - [x] Write and run unit tests for `LlmService`
   - [x] Verify static analysis and compilation
 
+## Phase 6: Gemini API Integration & API Key Settings
+- [x] Initialize `SharedPreferences` in `service_locator.dart`
+- [x] Implement `geminiApiKeyProvider` in `settings_provider.dart` (Default fallback empty string)
+- [x] Update `LlmNotifier` in `llm_provider.dart` to read and pass Gemini API Key
+- [x] Add Gemini API configuration section in `settings_screen.dart`
+- [x] Remove Edge Gallery logic and refine text/error behavior in `ai_summary_card.dart`
+- [x] Run analysis and tests to verify correctness
+
+## Phase 7: Multimodal Gemini Summary & Route Telemetry
+- [x] Implement Haversine distance and path summary in `llm_provider.dart`
+- [x] Implement multimodal Base64 image payload logic in `llm_service.dart`
+- [x] Implement manual photo picker dialog in `ai_summary_card.dart`
+- [x] Update `llm_service_test.dart` to verify image and route prompts
+- [x] Run static analysis and tests to confirm zero errors
+
+

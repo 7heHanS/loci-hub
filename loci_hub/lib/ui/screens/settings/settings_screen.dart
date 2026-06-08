@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/utils/db_export_util.dart';
 import '../../../core/utils/permission_handler.dart';
@@ -15,6 +16,21 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isExporting = false;
+  late final TextEditingController _apiKeyController;
+  bool _obscureApiKey = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentKey = ref.read(geminiApiKeyProvider);
+    _apiKeyController = TextEditingController(text: currentKey);
+  }
+
+  @override
+  void dispose() {
+    _apiKeyController.dispose();
+    super.dispose();
+  }
 
   Future<void> _exportDatabase() async {
     setState(() => _isExporting = true);
@@ -202,6 +218,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             title: const Text('사진 권한 상태 조회 실패'),
                             subtitle: Text('에러: $err'),
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Section 1.5: Gemini API Configuration
+                Text(
+                  'Gemini API 설정',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '일기 요약 서비스에 연결할 Gemini API Key를 설정합니다.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _apiKeyController,
+                          obscureText: _obscureApiKey,
+                          decoration: InputDecoration(
+                            labelText: 'Gemini API Key',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.vpn_key_outlined),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    _obscureApiKey
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureApiKey = !_obscureApiKey;
+                                    });
+                                  },
+                                ),
+                                if (_apiKeyController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_outlined),
+                                    onPressed: () {
+                                      setState(() {
+                                        _apiKeyController.clear();
+                                      });
+                                      ref.read(geminiApiKeyProvider.notifier).state = '';
+                                      getIt<SharedPreferences>().setString('gemini_api_key', '');
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                          onChanged: (val) {
+                            ref.read(geminiApiKeyProvider.notifier).state = val;
+                            getIt<SharedPreferences>().setString('gemini_api_key', val);
+                            setState(() {}); // Re-build to show/hide clear button
+                          },
                         ),
                       ],
                     ),

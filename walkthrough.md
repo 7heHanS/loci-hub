@@ -134,3 +134,44 @@ We integrated support for the local **Gemma-4-E4B-it** model running via the Goo
   - Regex/Heuristic fallback parsing
   - Prompt generation stats compliance
 
+---
+
+## 10. Gemini API Cloud Integration & API Key Configuration (Phase 6)
+To address the complexity of manually turning the local model server on/off, we transitioned the AI summary pipeline to Google's cloud-based **Gemini API** (`gemini-flash-latest` endpoint).
+
+- **Dependency Addition**: Added `shared_preferences` package to manage API key persistence across launches.
+- **DI Registration ([service_locator.dart](file:///home/thehans.han/LociHub/loci_hub/lib/core/di/service_locator.dart))**: Registered `SharedPreferences` as a singleton inside the `setupServiceLocator()` method.
+- **State Management & Provider ([settings_provider.dart](file:///home/thehans.han/LociHub/loci_hub/lib/providers/settings_provider.dart))**: Developed `geminiApiKeyProvider` backed by `SharedPreferences`. The provider retrieves the user-defined key or falls back to an empty string.
+- **UI Key Settings ([settings_screen.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/screens/settings/settings_screen.dart))**: Added a dedicated card to manage the Gemini API Key. Features a clean Material 3 design, obscured password text toggles (show/hide), a clear button, and auto-save capabilities linking directly to `SharedPreferences` and the Riverpod state.
+- **Refactoring & UI cleanup ([ai_summary_card.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/widgets/common/ai_summary_card.dart))**:
+  - Removed outdated local model launcher code (Edge Gallery Platform Channel and "앱 실행" SnackBarAction).
+  - Modified state descriptions from "로컬 AI 모델이 오늘 하루를 분석하는 중..." to "Gemini API가 오늘 하루를 분석하는 중...".
+- **Verification**: 
+  - Ran static analysis successfully (`flutter analyze` - clean compilation).
+  - Executed all 21 unit tests (`flutter test`) successfully, ensuring full database, matching, and parser test case integrity.
+
+---
+
+## 11. Multimodal Gemini Summary & Route Telemetry (Phase 7)
+To support rich visual intelligence and long-distance travel recognition (such as trips or business travel), we expanded the Gemini prompt and payload pipelines:
+
+- **Multimodal Payload Support ([llm_service.dart](file:///home/thehans.han/LociHub/loci_hub/lib/services/llm/llm_service.dart))**:
+  - Integrated `base64Image` optional parameter into `generateSummary`.
+  - Added support for injecting `inlineData` blocks containing the Base64 image payload alongside the prompt text inside the Gemini API body request.
+- **Route Telemetry & Heuristics ([llm_service.dart](file:///home/thehans.han/LociHub/loci_hub/lib/services/llm/llm_service.dart))**:
+  - Implemented the Haversine formula to compute cumulative daily travel distance (in kilometers) and the radius from start to end points.
+  - Automatically extracts up to 5 representative coordinate waypoints (using stationary stops first, then chronologically segmented samples).
+  - Enhanced the prompt to include cumulative distance analysis, allowing the Gemini model to dynamically infer vacation, travel, or long-distance movement.
+- **Manual Representative Photo Picker Dialog ([ai_summary_card.dart](file:///home/thehans.han/LociHub/loci_hub/lib/ui/widgets/common/ai_summary_card.dart))**:
+  - Refactored the summary request handler (`_handleGenerate`):
+    - **0 photos**: Directly fires the Gemini API request without an image.
+    - **1 photo**: Automatically forwards the single photo as the representative image.
+    - **2+ photos**: Triggers a beautiful Material 3 grid popup dialog showing the thumbnails of all synchronized photos.
+    - Users can tap to select exactly **one representative photo** to companion their summary request. Clicking "이 사진으로 일기 작성" invokes the summary API with the chosen photo.
+  - Added an inner `_PhotoThumbnail` widget loading thumbnails on-the-fly from Scoped Storage using `photo_manager` API bytes.
+- **Verification**:
+  - Expanded `llm_service_test.dart` assertions to verify that generated prompts successfully contain route telemetry waypoints and distance analysis keywords.
+  - Executed static analysis and verified all 21 unit tests pass flawlessly.
+
+
+
