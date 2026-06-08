@@ -17,5 +17,7 @@ final photoPermissionProvider = FutureProvider.autoDispose<PhotoAccessLevel>((re
 /// Falls back to the default provided key if not set.
 final geminiApiKeyProvider = StateProvider<String>((ref) {
   final prefs = getIt<SharedPreferences>();
-  return prefs.getString('gemini_api_key') ?? '';
+  final savedKey = prefs.getString('gemini_api_key') ?? '';
+  if (savedKey.isNotEmpty) return savedKey;
+  return const String.fromEnvironment('GEMINI_API_KEY');
 });
