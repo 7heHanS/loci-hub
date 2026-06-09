@@ -44,6 +44,8 @@ class AppDatabase {
   static Future<void> _onConfigure(Database db) async {
     // 1. Enable Foreign Key Constraints
     await db.execute('PRAGMA foreign_keys = ON');
+    // 2. Enable Write-Ahead Logging (WAL) mode for safe multi-isolate concurrent access
+    await db.execute('PRAGMA journal_mode = WAL');
   }
 
   static Future<void> _onCreate(Database db, int version) async {
